@@ -7,6 +7,7 @@ pygame.init()  # Função que inicia o jogo
 # --- SISTEMA DE PONTUAÇÃO E FONTE ---
 Pontos = 0
 nome_da_fonte = pygame.font.SysFont("arial", 40, True, False)
+fonte_game_over = pygame.font.SysFont("arial", 80, True, False)
 
 largura = 1920  # Varíavel com a largura(x) da tela
 altura = 1080  # Varíavel com a altura(y) da tela
@@ -16,13 +17,42 @@ Fase = 1
 gravidade = 1       
 Gravidade_Y = 0
 
-# Evita erro caso o arquivo de som não esteja na pasta durante testes
+# --- CARREGAMENTO DE AUDIO ---
+# Evita erro caso o arquivo de música não esteja na pasta durante testes
+try:
+    Musica_de_fundo = pygame.mixer.music.load("What Went Wrong.mp3")
+    pygame.mixer.music.set_volume(0.5)
+    pygame.mixer.music.play(-1)
+except:
+    print("Aviso: Música 'What Went Wrong.mp3' não encontrada.")
+    
 try:
     Som_Pulo = pygame.mixer.Sound("Jump.mp3")
     Som_Pulo.set_volume(0.3)
 except:
     print("Aviso: Som 'Jump.mp3' não encontrado.")
     Som_Pulo = None
+
+try:
+    Som_Morte = pygame.mixer.Sound("weird-route-jingle.mp3")
+    Som_Morte.set_volume(0.4)
+except:
+    print("Aviso: Som 'weird-route-jingle.mp3' não encontrado.")
+    Som_Morte = None
+
+try:
+    Som_Door = pygame.mixer.Sound("abandon-weird-route (1).mp3")
+    Som_Door.set_volume(0.4)
+except:
+    print("Aviso: Som 'abandon-weird-route (1).mp3' não encontrado.")
+    Som_Door = None
+
+try:
+    Som_GameOver = pygame.mixer.Sound("Deltarune-Chapter-5-Weird-Route-OST-Monologue.mp3")
+    Som_GameOver.set_volume(0.5)
+except:
+    print("Aviso: Som 'game-over.mp3' não encontrado.")
+    Som_GameOver = None
 
 # Propriedades do player
 Player_X = 100
@@ -43,7 +73,6 @@ Plataforma_Mortal = []
 def carregar_fase(numero_da_fase):
     global Plataforma_Mortal, Plataforma, Door_Pos_X, Door_Pos_Y, gravidade, Player_X, Player_Y
     
-    # Limpa as plataformas da fase anterior para não acumular
     Plataforma = [] 
     Plataforma_Mortal = []
 
@@ -127,6 +156,38 @@ def carregar_fase(numero_da_fase):
         Plataforma.append(pygame.Rect(400, 350, 300, 40))
         Plataforma.append(pygame.Rect(900, 500, 300, 40))
         Plataforma.append(pygame.Rect(1400, 650, 300, 40))
+# --- FUNÇÃO DE TELA DE GAME OVER ---
+def gerenciar_game_over():
+    global Pontos, Fase, Gravidade_Y
+    if Som_GameOver: Som_GameOver.play()
+    
+    while True:
+        tela.fill((0, 0, 0))
+        
+        # Renderiza os textos do placar de fim de jogo
+        texto_go = fonte_game_over.render("GAME OVER", True, (255, 0, 0))
+        texto_instrucao = nome_da_fonte.render("Pressione ESPAÇO para reiniciar ou ESC para sair", True, (255, 255, 255))
+        
+        # Cola os textos centralizados
+        tela.blit(texto_go, (largura // 2 - texto_go.get_width() // 2, altura // 2 - 100))
+        tela.blit(texto_instrucao, (largura // 2 - texto_instrucao.get_width() // 2, altura // 2 + 50))
+        
+        pygame.display.update()
+        
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                exit()
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_SPACE:  # Reseta o jogo por completo
+                    Pontos = 0
+                    Fase = 1
+                    Gravidade_Y = 0
+                    carregar_fase(Fase)
+                    return  # Sai da tela de game over e volta ao while principal
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    exit()
 
 # Inicializa o mapa da Fase 1 antes de entrar no while
 carregar_fase(Fase)
@@ -162,17 +223,11 @@ while True:  # Loop principal que faz o jogo rodar
     # Checa colisão horizontal nas plataformas (Paredes laterais)
     for i in range(len(Plataforma)):
         if jogador_rect.colliderect(Plataforma[i]):
-            if (
-                teclas[pygame.K_d] or teclas[pygame.K_RIGHT]
-            ):  # Indo para a direita
+            if (teclas[pygame.K_d] or teclas[pygame.K_RIGHT]):
                 jogador_rect.right = Plataforma[i].left
-            if (
-                teclas[pygame.K_a] or teclas[pygame.K_LEFT]
-            ):  # Indo para a esquerda
+            if (teclas[pygame.K_a] or teclas[pygame.K_LEFT]):
                 jogador_rect.left = Plataforma[i].right
-            Player_X = (
-                jogador_rect.centerx
-            )  # Atualiza a variável X baseada no Rect corrigido
+            Player_X = jogador_rect.centerx
 
     # MOVIMENTAÇÃO VERTICAL (FÍSICA ADAPTATIVA)
     if gravidade > 0:
@@ -193,7 +248,6 @@ while True:  # Loop principal que faz o jogo rodar
             else:
                 Gravidade_Y = -20  
     else:
-        # Lógica para Gravidade Invertida (Fases 4, 5 e 6)
         no_teto = Player_Y <= 180  
         if not no_teto:
             for plat in Plataforma:
@@ -240,16 +294,26 @@ while True:  # Loop principal que faz o jogo rodar
                 elif Gravidade_Y > 0:  
                     jogador_rect.bottom = Plataforma[i].top
                     Gravidade_Y = 0
-            Player_Y = (
-                jogador_rect.centery
-            )  
+            Player_Y = jogador_rect.centery
 
     # --- SISTEMA DE COLISÃO FATAL COM AS PLATAFORMAS MORTAIS ---
     for bloco_mortal in Plataforma_Mortal:
         if jogador_rect.colliderect(bloco_mortal):
-            Player_X = 80
-            Player_Y = 900
+            if Som_Morte: Som_Morte.play()
+            
+            if gravidade > 0:
+                Player_X = 80
+                Player_Y = 900
+            else:
+                Player_X = 100
+                Player_Y = 180
+                
+            Gravidade_Y = 0
             Pontos = Pontos - 50
+
+    # CONDICIONAL DE GAME OVER SE OS PONTOS FICAREM NEGATIVOS
+    if Pontos < 0:
+        gerenciar_game_over()
 
     # Limitação das Bordas Superior e Inferior do Cenário
     if gravidade > 0:
@@ -266,8 +330,7 @@ while True:  # Loop principal que faz o jogo rodar
     # 3. DESENHOS NA TELA
     if gravidade > 0:
         pygame.draw.line(tela, (255, 255, 255), (0, 1030), (1920, 1030), 100) # Linha do Chão
-    
-    if gravidade < 0:
+    else:
         pygame.draw.line(tela, (255, 255, 255), (0, 50), (1920, 50), 100)   # Linha do Teto
 
     # Desenha as plataformas seguras (Azul)
@@ -284,28 +347,23 @@ while True:  # Loop principal que faz o jogo rodar
     # Desenha a Porta com as coordenadas da fase atual
     Door = pygame.draw.rect(tela, (255, 255, 0), (Door_Pos_X, Door_Pos_Y, Door_X, Door_Y))
 
-    # --- SEÇÃO CORRIGIDA: SISTEMA DE TRANSIÇÃO E LOOP DE FASES CONTINUO ---
+    # Transição de fases
     if jogador_rect.colliderect(Door):
+        if Som_Door: Som_Door.play()
         Fase += 1
-        # Se passar da fase 6, o valor reseta para 1 de forma limpa antes de carregar o mapa
         if Fase > 6:
             Fase = 1
             
         Pontos += 100
         Gravidade_Y = 0
         carregar_fase(Fase)
-
-    if Pontos < 0:
-        pygame.quit()
-        exit()
-
+    
     # Exibe placar de Pontos e Fases adaptativo
     if gravidade > 0:
         texto_formatado = nome_da_fonte.render(f"Fase: {Fase}  |  Pontos: {Pontos}", True, (255, 255, 255))
         tela.blit(texto_formatado, (50, 50))
-    
     else:
         texto_formatado = nome_da_fonte.render(f"Fase: {Fase}  |  Pontos: {Pontos}", True, (255, 255, 255))
         tela.blit(texto_formatado, (50, 115))
-    
+        
     pygame.display.update()
