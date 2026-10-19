@@ -1,80 +1,311 @@
-import pygame # Permite utilizar os comandos da biblioteca pygame
+import pygame  # Permite utilizar os comandos da biblioteca pygame
+from pygame.locals import *  # Importa as funções do pygame local
+from sys import exit  # Importa a função exit
 
-from pygame.locals import * # Importa as funções do pygame local
+pygame.init()  # Função que inicia o jogo
 
-from sys import exit # Importa a função exit
+# --- SISTEMA DE PONTUAÇÃO E FONTE ---
+Pontos = 0
+nome_da_fonte = pygame.font.SysFont("arial", 40, True, False)
 
-pygame.init() # Função que inicia o jogo
+largura = 1920  # Varíavel com a largura(x) da tela
+altura = 1080  # Varíavel com a altura(y) da tela
 
-Musica_de_fundo = pygame.mixer.music.load("What Went Wrong.mp3") # cria a função com a música
-pygame.mixer.music.play(-1) # Toca a música (o -1 é para a musica tocar toda vez que acabar)
-
-largura = 1920 # Varíavel com a largura(x) da tela
-altura = 1080 # Varíavel com a altura(y) da tela
-gravidade = 1
-Gravidade_X = 0
+# --- SISTEMA DE FASES E FÍSICA ---
+Fase = 1
+gravidade = 1       
 Gravidade_Y = 0
-colisão = 0
-trajetória = 0
-aceleração = 0
-f = 0
 
-#Propiedades do player
+# Evita erro caso o arquivo de som não esteja na pasta durante testes
+try:
+    Som_Pulo = pygame.mixer.Sound("Jump.mp3")
+    Som_Pulo.set_volume(0.3)
+except:
+    print("Aviso: Som 'Jump.mp3' não encontrado.")
+    Som_Pulo = None
 
-Player_X= 80 # largura do jogador
-Player_Y= 800 # altura do jogador
-Velocidade_Player_X = 20 # Quantos pixels o jogador se movimentara horizontalmente
-Velocidade_Player_Y = 0 # Quantos pixels o jogador se movimentara verticalmente
+# Propriedades do player
+Player_X = 100
+Player_Y = 900
+Velocidade_Player_X = 10  
+jogador_rect = pygame.Rect(Player_X - 80, Player_Y - 80, 160, 160)
 
+# Propriedades bases da Porta
+Door_X = 100
+Door_Y = 200
+Door_Pos_X = 1600
+Door_Pos_Y = 40
 
-tela = pygame.display.set_mode((largura,altura)) # Função que define o tamanho da tela
-pygame.display.set_caption("Trabaio de Python") # Nome do programa
-relogio = pygame.time.Clock() # criação de FPS
+Plataforma = []
+Plataforma_Mortal = []
 
-while True: # Loop principal que faz o jogo rodar
-    relogio.tick(60) # limita o FPS do jogo
-    tela.fill((0,0,0)) # Recolore a tela com a cor dentro do ()
-    for event in pygame.event.get():  # Verifica se algum evento ocorreu ou ocorrerá
+# --- FUNÇÃO GERADORA DE MAPAS PADRONIZADOS ---
+def carregar_fase(numero_da_fase):
+    global Plataforma_Mortal, Plataforma, Door_Pos_X, Door_Pos_Y, gravidade, Player_X, Player_Y
+    
+    # Limpa as plataformas da fase anterior para não acumular
+    Plataforma = [] 
+    Plataforma_Mortal = []
+
+    if numero_da_fase == 1:
+        gravidade = 1 
+        Player_X = 100
+        Player_Y = 900
+        Door_Pos_X = 1600
+        Door_Pos_Y = 110 
+        
+        plat_x = 400
+        plat_y = 890 
+        Plataforma_Mortal.append(pygame.Rect(500,980,1420,100))
+        for i in range(4):
+            novo_bloco = pygame.Rect(plat_x, plat_y, 100, 40)
+            Plataforma.append(novo_bloco)
+            plat_x += 300  
+            plat_y -= 150   
+
+    elif numero_da_fase == 2:
+        gravidade = 0.25 
+        Player_X = 100
+        Player_Y = 900
+        Door_Pos_X = 1750
+        Door_Pos_Y = 700
+        Plataforma.append(pygame.Rect(350, 750, 250, 40))
+        Plataforma_Mortal.append(pygame.Rect(800, 600, 250, 40))
+        Plataforma_Mortal.append(pygame.Rect(1300, 500, 1420, 40))
+        Plataforma_Mortal.append(pygame.Rect(800, 600, 50, 380))
+        Plataforma_Mortal.append(pygame.Rect(1300, 100, 50, 400))
+
+    elif numero_da_fase == 3:
+        gravidade = 2.5 
+        Player_X = 100
+        Player_Y = 900
+        Door_Pos_X = 910
+        Door_Pos_Y = 250
+        Plataforma.append(pygame.Rect(300, 890, 200, 40))
+        Plataforma.append(pygame.Rect(600, 790, 200, 40))
+        Plataforma.append(pygame.Rect(900, 690, 120, 40))  
+        Plataforma.append(pygame.Rect(1200, 790, 200, 40))
+        Plataforma.append(pygame.Rect(1500, 890, 200, 40))
+        
+    elif numero_da_fase == 4:
+        gravidade = -1 
+        Player_X = 100
+        Player_Y = 180
+        Door_Pos_X = 1600
+        Door_Pos_Y = 730
+        
+        plat_x = 400
+        plat_y = 100  
+        for i in range(7):
+            novo_bloco = pygame.Rect(plat_x, plat_y, 100, 40)
+            Plataforma.append(novo_bloco)
+            plat_x += 200  
+            plat_y += 100   
+
+    elif numero_da_fase == 5:
+        gravidade = -2.5
+        Player_X = 100
+        Player_Y = 180
+        
+        Door_Pos_X = 1700
+        Door_Pos_Y = 400
+        
+        Plataforma.append(pygame.Rect(300, 150, 200, 40))
+        Plataforma.append(pygame.Rect(600, 220, 200, 40))
+        Plataforma.append(pygame.Rect(900, 300, 200, 40))
+        Plataforma.append(pygame.Rect(1200, 380, 200, 40))
+        Plataforma.append(pygame.Rect(1450, 450, 200, 40))
+
+    elif numero_da_fase == 6:
+        gravidade = -0.25
+        Player_X = 1840
+        Player_Y = 180
+        
+        Door_Pos_X = 200
+        Door_Pos_Y = 730
+        
+        Plataforma.append(pygame.Rect(400, 350, 300, 40))
+        Plataforma.append(pygame.Rect(900, 500, 300, 40))
+        Plataforma.append(pygame.Rect(1400, 650, 300, 40))
+
+# Inicializa o mapa da Fase 1 antes de entrar no while
+carregar_fase(Fase)
+
+tela = pygame.display.set_mode((largura, altura))  # Função que define o tamanho da tela
+pygame.display.set_caption("Space Galaxy")  # Nome do programa
+relogio = pygame.time.Clock()  # criação de FPS
+
+while True:  # Loop principal que faz o jogo rodar
+    relogio.tick(60)  # limita o FPS do jogo
+    tela.fill((0, 0, 0))
+
+    for event in pygame.event.get():  # Verifica se algum evento ocorreu
         if event.type == QUIT:
             pygame.quit()
             exit()
-        
-        teclas = pygame.key.get_pressed()
 
-        if teclas[pygame.K_d] or teclas[pygame.K_RIGHT]: 
-            Player_X = Player_X + Velocidade_Player_X
-        if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
-            Player_X = Player_X - Velocidade_Player_X
-        #if teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
-            #Player_Y = Player_Y + 100
-        if teclas[pygame.K_w] or teclas[pygame.K_UP] or teclas[pygame.K_SPACE]:
-            if Player_Y >= 800:
-                Gravidade_Y = -20
+    #MOVIMENTAÇÃO HORIZONTAL
+    teclas = pygame.key.get_pressed()
+    if teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
+        Player_X += Velocidade_Player_X
+    if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
+        Player_X -= Velocidade_Player_X
 
+    if Player_X < 80:
+        Player_X = 80  # Trava o jogador na parede esquerda
+    if Player_X > 1840:
+        Player_X = 1840  # Trava o jogador na parede direita (1920 - 80)
+
+    # Atualiza a posição X do Rect antes de checar colisões laterais
+    jogador_rect.centerx = Player_X
+
+    # Checa colisão horizontal nas plataformas (Paredes laterais)
+    for i in range(len(Plataforma)):
+        if jogador_rect.colliderect(Plataforma[i]):
+            if (
+                teclas[pygame.K_d] or teclas[pygame.K_RIGHT]
+            ):  # Indo para a direita
+                jogador_rect.right = Plataforma[i].left
+            if (
+                teclas[pygame.K_a] or teclas[pygame.K_LEFT]
+            ):  # Indo para a esquerda
+                jogador_rect.left = Plataforma[i].right
+            Player_X = (
+                jogador_rect.centerx
+            )  # Atualiza a variável X baseada no Rect corrigido
+
+    # MOVIMENTAÇÃO VERTICAL (FÍSICA ADAPTATIVA)
+    if gravidade > 0:
+        no_chao = Player_Y >= 900  
+        if not no_chao:
+            for plat in Plataforma:
+                if (
+                    jogador_rect.bottom == plat.top
+                    and jogador_rect.right > plat.left
+                    and jogador_rect.left < plat.right
+                ):
+                    no_chao = True
+                    break
+        if (teclas[pygame.K_w] or teclas[pygame.K_UP]) and no_chao:
+            if Som_Pulo: Som_Pulo.play()
+            if gravidade > 2:
+                Gravidade_Y = -35  
+            else:
+                Gravidade_Y = -20  
+    else:
+        # Lógica para Gravidade Invertida (Fases 4, 5 e 6)
+        no_teto = Player_Y <= 180  
+        if not no_teto:
+            for plat in Plataforma:
+                if (
+                    jogador_rect.top == plat.bottom
+                    and jogador_rect.right > plat.left
+                    and jogador_rect.left < plat.right
+                ):
+                    no_teto = True
+                    break
+        if (teclas[pygame.K_s] or teclas[pygame.K_DOWN]) and no_teto:
+            if Som_Pulo: Som_Pulo.play()
+            if gravidade < -2:
+                Gravidade_Y = 35  
+            else:
+                Gravidade_Y = 20  
+
+    # Aplicação contínua da gravidade
     Gravidade_Y += gravidade
     Player_Y += Gravidade_Y
 
-    if Player_Y >= 800:
-        Player_Y = 800
+    # Trava para impedir atravessar o teto nas fases de gravidade normal
+    if Player_Y <= 180 and gravidade > 0:
+        Player_Y = 180
         Gravidade_Y = 0
 
-    pygame.draw.rect(tela, (0,255,0), (1620,680,100,200)) # Desenha um retângulo(rect) na tela (aonde sera desenhado, (cor), (posição,largura,altura))
-    ret_object = pygame.draw.rect(tela, (255,0,0), (520,f,100,200))
-    if f >= altura-400: # impede que o retangulo va para baixo da tela
-        f = 0
-    f = f + 3
-    ret_player = pygame.draw.circle(tela, (255,0,255), (Player_X,Player_Y), (80))
-    pygame.draw.line(tela, (255,255,255), (0,980), (1920,980), 200) # desenha uma linha(line) na tela (aonde sera desenhado, (cor), (posição inicial), (posição final), expessura)
-    #A posição do retangulo é referenciada ao canto superior esquerdo do objeto e não o meio diferente do circulo
+    # Atualiza a posição Y do Rect antes de checar colisões verticais
+    jogador_rect.centery = Player_Y
 
-    if ret_player.colliderect(ret_object):
-        print("colidiu")
-    pygame.display.update() # A cada atualização do while principal essa função ira atualizar o jogo
+    # Checa colisão vertical nas plataformas normais
+    for i in range(len(Plataforma)):
+        if jogador_rect.colliderect(Plataforma[i]):
+            if gravidade > 0:
+                if Gravidade_Y > 0:  
+                    jogador_rect.bottom = Plataforma[i].top
+                    Gravidade_Y = 0
+                elif Gravidade_Y < 0:  
+                    jogador_rect.top = Plataforma[i].bottom
+                    Gravidade_Y = 0
+            else:
+                if Gravidade_Y < 0:  
+                    jogador_rect.top = Plataforma[i].bottom
+                    Gravidade_Y = 0
+                elif Gravidade_Y > 0:  
+                    jogador_rect.bottom = Plataforma[i].top
+                    Gravidade_Y = 0
+            Player_Y = (
+                jogador_rect.centery
+            )  
 
+    # --- SISTEMA DE COLISÃO FATAL COM AS PLATAFORMAS MORTAIS ---
+    for bloco_mortal in Plataforma_Mortal:
+        if jogador_rect.colliderect(bloco_mortal):
+            Player_X = 80
+            Player_Y = 900
+            Pontos = Pontos - 50
 
+    # Limitação das Bordas Superior e Inferior do Cenário
+    if gravidade > 0:
+        if Player_Y >= 900:
+            Player_Y = 900
+            Gravidade_Y = 0
+            jogador_rect.centery = Player_Y
+    else:
+        if Player_Y <= 180:
+            Player_Y = 180
+            Gravidade_Y = 0
+            jogador_rect.centery = Player_Y
 
+    # 3. DESENHOS NA TELA
+    if gravidade > 0:
+        pygame.draw.line(tela, (255, 255, 255), (0, 1030), (1920, 1030), 100) # Linha do Chão
+    
+    if gravidade < 0:
+        pygame.draw.line(tela, (255, 255, 255), (0, 50), (1920, 50), 100)   # Linha do Teto
 
+    # Desenha as plataformas seguras (Azul)
+    for i in range(len(Plataforma)):
+        pygame.draw.rect(tela, (0, 0, 255), Plataforma[i])
 
+    # Desenha as plataformas mortais (Vermelho)
+    for i in range(len(Plataforma_Mortal)):
+        pygame.draw.rect(tela, (255, 0, 0), Plataforma_Mortal[i])
 
+    # Desenha o jogador (círculo) na posição corrigida
+    pygame.draw.circle(tela, (255, 0, 255), (Player_X, Player_Y), 80)
 
-    # pygame.draw.circle(tela, (0,255,0), (1670,680), (100)) Desenha um circulo(cicle) na tela (aonde sera desenhado, (cor), (posição), (raio))
+    # Desenha a Porta com as coordenadas da fase atual
+    Door = pygame.draw.rect(tela, (255, 255, 0), (Door_Pos_X, Door_Pos_Y, Door_X, Door_Y))
+
+    # --- SEÇÃO CORRIGIDA: SISTEMA DE TRANSIÇÃO E LOOP DE FASES CONTINUO ---
+    if jogador_rect.colliderect(Door):
+        Fase += 1
+        # Se passar da fase 6, o valor reseta para 1 de forma limpa antes de carregar o mapa
+        if Fase > 6:
+            Fase = 1
+            
+        Pontos += 100
+        Gravidade_Y = 0
+        carregar_fase(Fase)
+
+    if Pontos < 0:
+        pygame.quit()
+        exit()
+
+    # Exibe placar de Pontos e Fases adaptativo
+    if gravidade > 0:
+        texto_formatado = nome_da_fonte.render(f"Fase: {Fase}  |  Pontos: {Pontos}", True, (255, 255, 255))
+        tela.blit(texto_formatado, (50, 50))
+    
+    else:
+        texto_formatado = nome_da_fonte.render(f"Fase: {Fase}  |  Pontos: {Pontos}", True, (255, 255, 255))
+        tela.blit(texto_formatado, (50, 115))
+    
+    pygame.display.update()
