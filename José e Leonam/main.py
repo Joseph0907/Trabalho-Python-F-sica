@@ -8,6 +8,8 @@ pygame.init()  # Função que inicia o jogo
 Pontos = 0
 nome_da_fonte = pygame.font.SysFont("arial", 40, True, False)
 fonte_game_over = pygame.font.SysFont("arial", 80, True, False)
+texto_movimentação = nome_da_fonte.render("Movimentação: A,<: Esquerda  | D,>: Direita", True, (255, 255, 255))
+texto_gravidade = nome_da_fonte.render("Gravidade: W,^: Pulo gravidade normal  | S,v: Pulo gravidade invertida", True, (255, 255, 255))
 
 largura = 1920  # Varíavel com a largura(x) da tela
 altura = 1080  # Varíavel com a altura(y) da tela
@@ -17,15 +19,14 @@ Fase = 1
 gravidade = 1       
 Gravidade_Y = 0
 
-# --- CARREGAMENTO DE AUDIO ---
 # Evita erro caso o arquivo de música não esteja na pasta durante testes
 try:
     Musica_de_fundo = pygame.mixer.music.load("What Went Wrong.mp3")
-    pygame.mixer.music.set_volume(0.5)
     pygame.mixer.music.play(-1)
 except:
     print("Aviso: Música 'What Went Wrong.mp3' não encontrada.")
-    
+
+# --- CARREGAMENTO DE AUDIO ---
 try:
     Som_Pulo = pygame.mixer.Sound("Jump.mp3")
     Som_Pulo.set_volume(0.3)
@@ -51,7 +52,7 @@ try:
     Som_GameOver = pygame.mixer.Sound("Deltarune-Chapter-5-Weird-Route-OST-Monologue.mp3")
     Som_GameOver.set_volume(0.5)
 except:
-    print("Aviso: Som 'game-over.mp3' não encontrado.")
+    print("Aviso: Som 'Deltarune-Chapter-5-Weird-Route-OST-Monologue.mp3' não encontrado.")
     Som_GameOver = None
 
 # Propriedades do player
@@ -156,19 +157,20 @@ def carregar_fase(numero_da_fase):
         Plataforma.append(pygame.Rect(400, 350, 300, 40))
         Plataforma.append(pygame.Rect(900, 500, 300, 40))
         Plataforma.append(pygame.Rect(1400, 650, 300, 40))
-# --- FUNÇÃO DE TELA DE GAME OVER ---
+# --- FUNÇÃO DE TELA DE GAME OVER COM CONTROLE ADAPTATIVO DE ÁUDIO ---
 def gerenciar_game_over():
     global Pontos, Fase, Gravidade_Y
-    if Som_GameOver: Som_GameOver.play()
+    
+    pygame.mixer.music.stop()  # Para a música de fundo imediatamente
+    if Som_GameOver: 
+        Som_GameOver.play(-1)  # O parâmetro -1 força o áudio a tocar infinitamente em loop
     
     while True:
         tela.fill((0, 0, 0))
         
-        # Renderiza os textos do placar de fim de jogo
         texto_go = fonte_game_over.render("GAME OVER", True, (255, 0, 0))
         texto_instrucao = nome_da_fonte.render("Pressione ESPAÇO para reiniciar ou ESC para sair", True, (255, 255, 255))
         
-        # Cola os textos centralizados
         tela.blit(texto_go, (largura // 2 - texto_go.get_width() // 2, altura // 2 - 100))
         tela.blit(texto_instrucao, (largura // 2 - texto_instrucao.get_width() // 2, altura // 2 + 50))
         
@@ -179,12 +181,20 @@ def gerenciar_game_over():
                 pygame.quit()
                 exit()
             if event.type == KEYDOWN:
-                if event.key == pygame.K_SPACE:  # Reseta o jogo por completo
+                if event.key == pygame.K_SPACE:  
+                    if Som_GameOver: 
+                        Som_GameOver.stop()  # Interrompe o som de Game Over na hora
+                    
+                    try:
+                        pygame.mixer.music.play(-1)  # Reinicia a trilha sonora principal do jogo
+                    except:
+                        pass
+                        
                     Pontos = 0
                     Fase = 1
                     Gravidade_Y = 0
                     carregar_fase(Fase)
-                    return  # Sai da tela de game over e volta ao while principal
+                    return  
                 if event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     exit()
@@ -324,7 +334,7 @@ while True:  # Loop principal que faz o jogo rodar
     else:
         if Player_Y <= 180:
             Player_Y = 180
-            Gravidade_Y = 0
+            Keep_Y = 0
             jogador_rect.centery = Player_Y
 
     # 3. DESENHOS NA TELA
@@ -362,8 +372,12 @@ while True:  # Loop principal que faz o jogo rodar
     if gravidade > 0:
         texto_formatado = nome_da_fonte.render(f"Fase: {Fase}  |  Pontos: {Pontos}", True, (255, 255, 255))
         tela.blit(texto_formatado, (50, 50))
+        tela.blit(texto_movimentação, (50,100))
+        tela.blit(texto_gravidade, (50,150))
     else:
         texto_formatado = nome_da_fonte.render(f"Fase: {Fase}  |  Pontos: {Pontos}", True, (255, 255, 255))
         tela.blit(texto_formatado, (50, 115))
+        tela.blit(texto_movimentação, (50,165))
+        tela.blit(texto_gravidade, (50,215))
         
     pygame.display.update()
